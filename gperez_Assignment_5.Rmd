@@ -1,0 +1,260 @@
+---
+title: "gperez_Assignment_5"
+author: "Gera"
+date: "9/2/2019"
+output: html_document
+---
+This is an exercise to understand K-mer-based Genomes and Transcriptomes (Part 1)
+
+Copy or link these files to a working directory on Talapas:
+```{r engine = 'bash', eval = FALSE}
+scp /projects/bgmp/shared/Bi623/assign5/ssc_wgs.fastq .
+scp /projects/bgmp/shared/Bi623/assign5/cha_wgs.fastq .
+```
+
+1. Using jellyfish (a k-mer counting tool), enumerate k-mers in the two data sets and format them for k-mer spectrum plotting. Use the Jellyfish/1.1.11-foss-2016b module. 
+```{r engine = 'bash', eval = FALSE}
+#!/bin/bash
+
+#SBATCH --account=bgmp
+#SBATCH --partition=bgmp
+#SBATCH --job-name=Assign_5_jellyfish
+#SBATCH --output=slurm-%j-%x.out
+
+#SBATCH --time=0-01:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+
+ml racs-eb
+ml Jellyfish/1.1.11-foss-2016b
+
+
+/usr/bin/time -v jellyfish count -t 8 -C -m 19 -s 5G -o 19mer_out_ssc ssc_wgs.fastq
+/usr/bin/time -v jellyfish histo -o 19mer_out_ssc.histo 19mer_out_ssc_0
+/usr/bin/time -v jellyfish count -t 8 -C -m 19 -s 5G -o 19mer_out_cha cha_wgs.fastq
+/usr/bin/time -v jellyfish histo -o 19mer_out_cha.histo 19mer_out_cha_0
+
+```
+
+
+```{r}
+# sets the directory to save files.
+setwd("/Users/gerardoperez/Documents/shell/Bi623/Assignment5")
+```
+
+
+
+Read your ssc and cha .histo files into R 
+Copied files to local folder on laptop to open with R-studiio.
+```{r engine = 'bash', eval = FALSE}
+scp hpc:/home/gperez8/bgmp/projects/bgmp/gperez8/Bi623/Ex5/*histo .
+```
+
+
+
+
+```{r}
+# Opens and reads file and stores it to a variable as a dataframe.
+data_txt_cha <- read.table("19mer_out_cha.histo",  header=F, row.names=1)
+data_txt_ssc <- read.table("19mer_out_ssc.histo", header=F, row.names=1)
+
+
+# Extracts the first 200 rows and stores them into variable
+data_txt_cha_200<- data.frame(data_txt_cha[1:200,])
+data_txt_ssc_200<- data.frame(data_txt_ssc[1:200,])
+```
+
+
+
+
+
+```{r}
+# creates a scatter plot with certain parameters
+plot(1:length(data_txt_cha_200[,1]), (data_txt_cha_200[,1]), type ="l", xlim=c(0,50),ylim=c(0, 6E7), xlab="Coverage", ylab="Frequency", main ="cha" )
+```
+
+```{r}
+# creates a scatter plot with certain parameters
+plot(1:length(data_txt_ssc_200[,1]), (data_txt_ssc_200[,1]), type ="l", xlim=c(0,50),ylim=c(0, 6E7), xlab="Coverage", ylab="Frequency", main ="ssc" )
+```
+
+3 What can you infer about these two genomes based on the k-mer spectra?
+
+*Cha has a high lambda compared to ssc which suggests higher frequence of coverage. Also, ssc has a broader peak compared to cha that suggests polymorphism or heterzygous in the genome. The cha curve starts the curve with higher frequency, around 1E9, suggesting many k-mers appear once, meaning more sequencing error and pcr amplifiaction error. In addition, the ssc spectra looks to flattened out more compared to the cha spectra, which suggests that cha spectra has a higher proportion of repeats.*
+
+4. Copy or link these files to a working directory on Talapas:
+
+```{r engine = 'bash', eval = FALSE}
+scp /projects/bgmp/shared/Bi623/assign5/SscoPEclean_R1.fastq .
+scp /projects/bgmp/shared/Bi623/assign5/SscoPEclean_R2.fastq .
+```
+
+
+Filter the data for rare k-mers using kmer_filter, also part of the Stacks package. Perform rare k-mer filtering ONLY, and rename the new files SscoPEcleanfil_R1.fastq and SscoPEcleanfil_R2.fastq.
+
+```{r engine = 'bash', eval = FALSE}
+#!/bin/bash
+
+#SBATCH --account=bgmp
+#SBATCH --partition=bgmp
+#SBATCH --job-name=kmer_filter
+#SBATCH --output=slurm-%j-%x.out
+
+#SBATCH --time=0-06:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=50G
+
+ml easybuild  icc/2017.1.132-GCC-6.3.0-2.27  impi/2017.1.132
+ml Stacks/1.46
+
+/usr/bin/time -v kmer_filter -1 SscoPEclean_R1.fastq -2 SscoPEclean_R2.fastq -o /projects/bgmp/gperez8/projects/bgmp/gperez8/Bi623/Ex5/ --rare
+
+```
+
+5. Run kmer_filter again, this time to normalize the cleaned, filtered data to 2 different coverages. To save time, run these as two sbatch scripts in parallel.
+
+Normalize to 40X k-mer coverage; compress the output files, and rename the new files SscoPEcleanfil40x_R1.fastq and SscoPEcleanfil40x_R2.fastq.
+
+```{r engine = 'bash', eval = FALSE}
+#!/bin/bash
+
+#SBATCH --account=bgmp
+#SBATCH --partition=bgmp
+#SBATCH --job-name=norm_40x
+#SBATCH --output=slurm-%j-%x.out
+
+#SBATCH --time=0-06:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=50G
+
+ml easybuild  icc/2017.1.132-GCC-6.3.0-2.27  impi/2017.1.132
+ml Stacks/1.46
+
+/usr/bin/time -v kmer_filter -1  SscoPEcleanfil_R1.fastq -2 SscoPEcleanfil_R2.fastq -o /projects/bgmp/gperez8/projects/bgmp/gperez8/Bi623/Ex5/40x  --normalize 40
+```
+
+
+Similarly, normalize the cleaned, filtered data to 20X k-mer coverage, compress the output files, and rename the new files SscoPEcleanfil20x_R1.fastq and SscoPEcleanfil20x_R2.fastq.
+
+```{r engine = 'bash', eval = FALSE}
+#!/bin/bash
+
+#SBATCH --account=bgmp
+#SBATCH --partition=bgmp
+#SBATCH --job-name=norm_20x
+#SBATCH --output=slurm-%j-%x.out
+
+#SBATCH --time=0-06:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=50G
+
+ml easybuild  icc/2017.1.132-GCC-6.3.0-2.27  impi/2017.1.132
+ml Stacks/1.46
+
+/usr/bin/time -v kmer_filter -1  SscoPEcleanfil_R1.fastq -2 SscoPEcleanfil_R2.fastq -o /projects/bgmp/gperez8/projects/bgmp/gperez8/Bi623/Ex5/20x  --normalize 20
+```
+
+D. Briefly explain in a sentence or two what this is doing to your data:
+
+*Its an iteriation where this first starts by counting the occurence of each kmer read, finds the number of occurrence of each kmer, calculates the kmer coverage median for the read, discards read if median exceeds threshold and repeats the process.*
+
+5. At this point you should have 4 sets of processed paired-end reads:
+Count and report the number of total read pairs for each set.
+
+```{r engine = 'bash', eval = FALSE}
+wc -l  SscoPEclean_R1.fastq
+195939384 SscoPEclean_R1.fastq
+
+wc -l  SscoPEclean_R2.fastq
+195939384 SscoPEclean_R2.fastq
+
+wc -l SscoPEcleanfil_R1.fastq
+161695500 SscoPEcleanfil_R1.fastq
+
+wc -l SscoPEcleanfil_R2.fastq
+161695500 SscoPEcleanfil_R2.fastq
+
+wc -l SscoPEcleanfil40x_R1.fastq
+57304788 SscoPEcleanfil40x_R1.fastq
+
+wc -l SscoPEcleanfil40x_R2.fastq
+57304788 SscoPEcleanfil40x_R2.fastq
+
+wc -l SscoPEcleanfil20x_R1.fastq
+37606728 SscoPEcleanfil20x_R1.fastq
+
+wc -l SscoPEcleanfil20x_R2.fastq
+37606728 SscoPEcleanfil20x_R2.fastq
+
+
+```
+
+6. Now generate k-mer counts and histogram files using jellyfish (as above) 3 times - 1. on SscoPEclean_R1.fastq, 2. on SscoPEcleanfil_R1.fastq, and 3. on SscoPEcleanfil20x_R1.fastq
+
+```{r engine = 'bash', eval = FALSE}
+#!/bin/bash
+
+#SBATCH --account=bgmp
+#SBATCH --partition=bgmp
+#SBATCH --job-name=R1_jellyfish
+#SBATCH --output=slurm-%j-%x.out
+
+#SBATCH --time=0-06:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+
+ml racs-eb
+ml Jellyfish/1.1.11-foss-2016b
+
+
+/usr/bin/time -v jellyfish count -t 8 -C -m 19 -s 5G -o SscoPEclean_R1_out SscoPEclean_R1.fastq
+/usr/bin/time -v jellyfish histo -o SscoPEclean_R1_out.histo SscoPEclean_R1_out_0
+
+
+
+/usr/bin/time -v jellyfish count -t 8 -C -m 19 -s 5G -o SscoPEcleanfil_R1_out SscoPEcleanfil_R1.fastq
+/usr/bin/time -v jellyfish histo -o SscoPEcleanfil_R1_out.histo SscoPEcleanfil_R1_out_0
+
+
+
+/usr/bin/time -v jellyfish count -t 8 -C -m 19 -s 5G -o SscoPEcleanfil20x_R1_out SscoPEcleanfil20x_R1.fastq
+/usr/bin/time -v jellyfish histo -o SscoPEcleanfil20x_R1_out.histo SscoPEcleanfil20x_R1_out_0
+
+```
+
+Plot the spectra in R and include the figures with the rest of the assignment.
+
+
+```{r}
+# Opens and reads file and stores it to a variable as a dataframe.
+data_txt_SscoPEclean_R1 <- read.table("SscoPEclean_R1_out.histo",  header=F, row.names=1)
+data_txt_SscoPEcleanfil_R1 <- read.table("SscoPEcleanfil_R1_out.histo",  header=F, row.names=1)
+data_txt_SscoPEcleanfil20x_R1 <- read.table("SscoPEcleanfil20x_R1_out.histo",  header=F, row.names=1)
+
+```
+
+
+```{r}
+# creates a scatter plot with certain parameters
+plot(1:length(data_txt_SscoPEclean_R1[,1]), data_txt_SscoPEclean_R1[,1], type ="l", log= "y", xlim=c(0,100), col="red", xlab="Coverage", ylab="Frequency", main="SscoPE: clean vs filter vs 20x")
+
+# Adds points to the scatter plot figure.
+lines(1:length(data_txt_SscoPEcleanfil_R1[,1]), data_txt_SscoPEcleanfil_R1[,1], col="green")
+lines(1:length(data_txt_SscoPEcleanfil20x_R1[,1]), data_txt_SscoPEcleanfil20x_R1[,1], col="blue")
+
+# Adds legend to the plot
+legend(71, 200000000,c('clean', 'clean_filter', 'clean_fiter_20x'), lwd=c(2.5,2.5),col=c("red","green", "blue"))
+```
+
+How do the 3 RNA-Seq data spectra differ? How are they different from the WGS data spectra?
+
+*The clean and the clean_filter spectra look about the same which suggests that the clean SscoPE data given was already filtered. Since we cant get good coverage on a transcriptome, we try to normalize the data and it does not look great but it does look different from the other two. Spectra clean_filter_20x has a lambda at 20 coverage and after the 20 coverage, the frequency is lower than the other spectra which suggests less proportion of repeats. There should not be a peak in transcriptome, due to differential expression. Because of differential expression the curves on transcriptome are even where on the WGS curves, they have peaks with lambda. In WGS, there is one genome and known total sequence nucleotides which we can determine the coverage and shows up on the spectra. Furthermore, K-mer filtering and normalization for genome assembly filters out reads containing rare k-mers and abundant k-mers, where transcriptome assembly filters out reads of small subset of k-mers and abundant k-mers to a point.*
+
